@@ -8,7 +8,7 @@
 <style>
   *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
   #app{position:fixed;inset:0;background:#0f172a}
-  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)}
   #shade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(15,23,42,.55),rgba(15,23,42,.08) 35%,rgba(15,23,42,.08) 65%,rgba(15,23,42,.65));pointer-events:none}
   #frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(72vw,420px);aspect-ratio:1;border:4px solid rgba(255,255,255,.9);border-radius:28px;box-shadow:0 0 0 9999px rgba(15,23,42,.12);pointer-events:none}
   #frame:before,#frame:after{content:"";position:absolute;inset:18%;border:1px dashed rgba(255,255,255,.35);border-radius:18px}
@@ -104,21 +104,40 @@
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 브라우저는 카메라 기능을 지원하지 않습니다.');
 
       await stopCamera();
-      // 일부 모바일 브라우저는 facingMode의 { ideal: ... } 형식을 거부합니다.
-      // 1차: 후면 카메라를 문자열로 요청
-      // 2차: 실패하면 facingMode 조건 없이 사용 가능한 카메라를 요청
+
+      // facingMode를 아예 사용하지 않습니다.
+      // 1) 가장 단순한 video:true로 권한을 먼저 획득합니다.
+      // 2) 권한 획득 후 카메라 목록을 읽어 전면 카메라를 찾아 deviceId로 직접 선택합니다.
+      let permissionStream = await navigator.mediaDevices.getUserMedia({audio:false, video:true});
+      let selectedStream = permissionStream;
+
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio:false,
-          video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}}
-        });
-      } catch (firstErr) {
-        console.warn('후면 카메라 지정 실패, 기본 카메라로 재시도:', firstErr);
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio:false,
-          video:{width:{ideal:1280}, height:{ideal:720}}
-        });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+        const frontRe = /(front|user|selfie|facetime|전면|앞면)/i;
+        const rearRe = /(back|rear|environment|후면|뒷면)/i;
+
+        let front = cameras.find(d => frontRe.test(d.label || ''));
+        if (!front && cameras.length > 1) {
+          front = cameras.find(d => !rearRe.test(d.label || '')) || cameras[0];
+        }
+
+        if (front && front.deviceId) {
+          permissionStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+          permissionStream = null;
+          selectedStream = await navigator.mediaDevices.getUserMedia({
+            audio:false,
+            video:{deviceId:{exact:front.deviceId}}
+          });
+        }
+      } catch (selectErr) {
+        console.warn('전면 카메라 선택 실패. 기본 카메라를 그대로 사용합니다.', selectErr);
+        if (!selectedStream || !selectedStream.active) {
+          selectedStream = await navigator.mediaDevices.getUserMedia({audio:false, video:true});
+        }
       }
+
+      stream = selectedStream;
       video.srcObject = stream;
       await video.play();
 
@@ -131,7 +150,7 @@
 
       running = true;
       hideGate();
-      setStatus('스캔 대기 중', 'QR만 카메라에 보여주세요. 카메라는 계속 켜져 있습니다.');
+      setStatus('스캔 대기 중', '전면 카메라에 QR만 보여주세요. 카메라는 계속 켜져 있습니다.');
       scheduleScan(100);
     } catch (err) {
       await stopCamera();
