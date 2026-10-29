@@ -30,8 +30,14 @@
     iframe.setAttribute('aria-hidden', 'true');
     iframe.setAttribute('tabindex', '-1');
     iframe.style.cssText =
-      'position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;' +
-      'border:0;opacity:0;pointer-events:none;';
+      'position:fixed;width:2px;height:2px;left:-9999px;top:-9999px;' +
+      'border:0;opacity:.01;pointer-events:none;';
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.postMessage({type:'DAHAM_BRIDGE_PING'}, '*');
+      } catch (e) {}
+    };
 
     const mount = () => {
       if (!iframe.isConnected) document.body.appendChild(iframe);
@@ -87,12 +93,16 @@
     const data = event.data || {};
 
     if (data.type === 'DAHAM_BRIDGE_READY') {
-      ready = true;
-      flushQueue();
+      if (!ready) {
+        ready = true;
+        window.dispatchEvent(
+          new CustomEvent('daham-bridge-ready', {
+            detail:{version:data.version || '17.1'}
+          })
+        );
+      }
 
-      window.dispatchEvent(
-        new CustomEvent('daham-bridge-ready')
-      );
+      flushQueue();
       return;
     }
 
@@ -175,4 +185,29 @@
   });
 
   ensureFrame();
+
+  const pingTimer = setInterval(() => {
+    if (ready) {
+      clearInterval(pingTimer);
+      return;
+    }
+
+    try {
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({type:'DAHAM_BRIDGE_PING'}, '*');
+      }
+    } catch (e) {}
+  }, 500);
+
+  setTimeout(() => {
+    if (!ready) {
+      window.dispatchEvent(
+        new CustomEvent('daham-bridge-error', {
+          detail:{
+            message:'서버 연결 실패 · Apps Script 배포와 bridge.html을 확인해주세요.'
+          }
+        })
+      );
+    }
+  }, 8000);
 })();
