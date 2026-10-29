@@ -210,4 +210,15 @@
       );
     }
   }, 8000);
+
+  // bridge가 페이지 코드보다 먼저 준비된 경우에도 상태를 다시 알려준다.
+  window.addEventListener('DOMContentLoaded', () => {
+    if (ready) {
+      window.dispatchEvent(
+        new CustomEvent('daham-bridge-ready', {
+          detail:{version:'17.2'}
+        })
+      );
+    }
+  });
 })();

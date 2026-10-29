@@ -374,7 +374,13 @@ window.addEventListener('daham-bridge-error',e=>{
 });
 
 window.addEventListener('load',()=>{
-  loginBtn.disabled=true;
+  if (window.DAHAM_BRIDGE && window.DAHAM_BRIDGE.ready) {
+    serverState.textContent='서버 연결됨';
+    serverState.className='serverState ok';
+    loginBtn.disabled=false;
+  } else {
+    loginBtn.disabled=true;
+  }
   const saved=localStorage.getItem(PHONE_KEY)||'';
 
   if(saved){
