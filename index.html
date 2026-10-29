@@ -9,7 +9,8 @@
   *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
   #app{position:fixed;inset:0;background:#0f172a}
   #cameraBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(78vw,420px);aspect-ratio:1;background:#000;border:4px solid rgba(255,255,255,.92);border-radius:28px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)}
-  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)}
+  #video{position:fixed;left:-99999px;top:-99999px;width:2px;height:2px;opacity:0;pointer-events:none}
+  #preview{position:absolute;inset:0;width:100%;height:100%;display:block;background:#000;transform:scaleX(-1)}
   #frame{position:absolute;inset:0;pointer-events:none}
   #frame:before{content:"";position:absolute;inset:17%;border:2px dashed rgba(255,255,255,.55);border-radius:18px}
   #frame:after{content:"QR을 네모 안에 보여주세요";position:absolute;left:50%;bottom:18px;transform:translateX(-50%);white-space:nowrap;padding:7px 11px;border-radius:999px;background:rgba(15,23,42,.72);font-size:13px;color:#fff}
@@ -25,15 +26,16 @@
   button:disabled{opacity:.55;cursor:wait}
   #result{position:absolute;z-index:9;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.74);padding:22px}
   #result.show{display:flex}.resultCard{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:26px;padding:34px;text-align:center}.resultCard .big{font-size:30px;font-weight:900}.resultCard .sub{margin-top:10px;color:#475569;font-size:17px}
-  canvas{display:none}
+  #canvas{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body>
 <div id="app">
   <div id="cameraBox">
-    <video id="video" playsinline muted autoplay></video>
+    <canvas id="preview"></canvas>
     <div id="frame"></div>
+    <video id="video" playsinline muted autoplay></video>
   </div>
   <header><h1>도급 출퇴근</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
   <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small></div>
@@ -53,6 +55,8 @@
   const RESULT_SHOW_MS = 1900;
 
   const video = document.getElementById('video');
+  const preview = document.getElementById('preview');
+  const pctx = preview.getContext('2d');
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d', {willReadFrequently:true});
   const statusEl = document.getElementById('status');
@@ -90,6 +94,7 @@
   async function stopCamera(){
     running = false;
     if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+    if (previewRaf) { cancelAnimationFrame(previewRaf); previewRaf = null; }
     if (stream) {
       stream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
       stream = null;
@@ -152,6 +157,7 @@
       }
 
       running = true;
+      startPreviewLoop();
       hideGate();
       setStatus('스캔 대기 중', '전면 카메라에 QR만 보여주세요. 카메라는 계속 켜져 있습니다.');
       scheduleScan(100);
@@ -171,6 +177,32 @@
       starting = false;
       startBtn.disabled = false;
     }
+  }
+
+  let previewRaf = null;
+
+  function startPreviewLoop(){
+    if (previewRaf) cancelAnimationFrame(previewRaf);
+    const draw = () => {
+      if (!running || !video.videoWidth || !video.videoHeight) {
+        previewRaf = requestAnimationFrame(draw);
+        return;
+      }
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      const sx = Math.max(0, Math.floor((video.videoWidth - size) / 2));
+      const sy = Math.max(0, Math.floor((video.videoHeight - size) / 2));
+      const box = document.getElementById('cameraBox').getBoundingClientRect();
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      const w = Math.max(1, Math.floor(box.width * dpr));
+      const h = Math.max(1, Math.floor(box.height * dpr));
+      if (preview.width !== w || preview.height !== h) {
+        preview.width = w;
+        preview.height = h;
+      }
+      pctx.drawImage(video, sx, sy, size, size, 0, 0, preview.width, preview.height);
+      previewRaf = requestAnimationFrame(draw);
+    };
+    previewRaf = requestAnimationFrame(draw);
   }
 
   function scheduleScan(delay=SCAN_INTERVAL_MS){
