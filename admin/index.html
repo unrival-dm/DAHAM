@@ -1,47 +1,38 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-:root{font-family:Arial,'Noto Sans KR',sans-serif;color:#111827;background:#f3f4f6}body{margin:0}.wrap{max-width:1280px;margin:auto;padding:20px}.card{background:#fff;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 1px 7px #00000012}h1{margin:4px 0 18px}h2{font-size:20px;margin:0 0 12px}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button{width:auto}.panel{display:none}.panel.active{display:block}button,input,select,textarea{padding:9px 10px;border-radius:8px;border:1px solid #d1d5db;font-size:14px;box-sizing:border-box}button{background:#1d4ed8;color:#fff;border:0;font-weight:700;cursor:pointer}.secondary{background:#4b5563}.danger{background:#b91c1c}.ghost{background:#fff;color:#1d4ed8;border:1px solid #bfdbfe}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}th,td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;white-space:nowrap}th{background:#f9fafb;position:sticky;top:0}.tablewrap{overflow:auto;max-height:620px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.metric{background:#f9fafb;border-radius:10px;padding:14px}.metric b{display:block;font-size:22px;margin-top:6px}.muted{color:#6b7280}.warn{color:#b45309;font-weight:700}.money{text-align:right}.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;padding:20px}.modal.show{display:flex}.modal .box{background:#fff;border-radius:12px;padding:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.formgrid label{font-size:12px;color:#4b5563}.formgrid input,.formgrid select{width:100%;margin-top:4px}.full{grid-column:1/-1}@media(max-width:700px){.formgrid{grid-template-columns:1fr}th,td{font-size:12px}.wrap{padding:10px}}
-.bridgeBanner{position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 11px;border-radius:999px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-size:12px;font-weight:700}
-.bridgeBanner.ok{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
-.bridgeBanner.err{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
-</style></head><body>
-<div id="bridgeBanner" class="bridgeBanner">서버 연결 중…</div><div class="wrap"><h1>도급 근태·정산 관리자</h1>
-<div id="loginBox" class="card" style="max-width:420px"><h2>관리자 로그인</h2><div class="toolbar"><input id="adminPin" type="password" placeholder="관리자 PIN" style="flex:1"><button onclick="adminLoginFn()">로그인</button></div><p class="muted">최초 테스트 PIN: 1234</p></div>
-<div id="app" hidden><div class="tabs card"><button onclick="tab('dashboard')">대시보드</button><button onclick="tab('workers')">작업자</button><button onclick="tab('attendance')">근태</button><button onclick="tab('logs')">스캔 로그</button><button onclick="tab('settlement')">정산/마감</button><button onclick="tab('settings')">정산 기준</button><button class="secondary" onclick="changePinPrompt()">PIN 변경</button></div>
-<section id="dashboard" class="panel active card"><h2>대시보드</h2><div class="toolbar"><input id="dashStart" type="date"><input id="dashEnd" type="date"><button onclick="loadDashboard()">조회</button></div><div id="metrics" class="cards"></div></section>
-<section id="workers" class="panel card"><h2>작업자 관리</h2><div class="toolbar"><select id="workerStatus"><option value="">전체</option><option value="PENDING">승인대기</option><option value="APPROVED">승인</option></select><button onclick="loadWorkers()">조회</button></div><div class="tablewrap"><table><thead><tr><th>이름</th><th>휴대폰</th><th>생년월일</th><th>상태</th><th>가입일</th><th>처리</th></tr></thead><tbody id="workerRows"></tbody></table></div></section>
-<section id="attendance" class="panel card"><h2>근태 관리</h2><div class="toolbar"><input id="attStart" type="date"><input id="attEnd" type="date"><button onclick="loadAttendance()">조회</button><button class="secondary" onclick="openManual()">근태 수동등록</button></div><div class="tablewrap"><table><thead><tr><th>날짜</th><th>이름</th><th>실제출근</th><th>실제퇴근</th><th>자동출근</th><th>자동퇴근</th><th>확정출근</th><th>확정퇴근</th><th>정상</th><th>연장</th><th>유형</th><th>상태</th><th>처리</th></tr></thead><tbody id="attRows"></tbody></table></div></section>
-<section id="logs" class="panel card"><h2>스캔 로그</h2><div class="toolbar"><input id="logStart" type="date"><input id="logEnd" type="date"><button onclick="loadLogs()">조회</button></div><div class="tablewrap"><table><thead><tr><th>일시</th><th>작업자</th><th>구분</th><th>결과</th><th>메시지</th><th>스캐너</th></tr></thead><tbody id="logRows"></tbody></table></div></section>
-<section id="settlement" class="panel card"><h2>정산기간 / 마감</h2><div class="toolbar"><input id="periodMonth" type="month"><button onclick="makeHalfPeriods()">15일 정산기간 생성</button></div><div class="tablewrap"><table><thead><tr><th>정산기간</th><th>기간</th><th>상태</th><th>인원</th><th>근무일</th><th>공급가액</th><th>VAT</th><th>최종금액</th><th>처리</th></tr></thead><tbody id="periodRows"></tbody></table></div></section>
-<section id="settings" class="panel card"><h2>정산 기준</h2><div id="settingsForm" class="formgrid"></div><div style="margin-top:12px"><button onclick="saveSettings()">저장</button></div></section>
-</div></div>
-<div id="modal" class="modal"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="toolbar" style="justify-content:flex-end;margin-top:14px"><button class="ghost" onclick="closeModal()">취소</button><button id="modalSave" onclick="saveModal()">저장</button></div></div></div>
-<script src="../assets/config-v18.js?v=18.1"></script>
-<script src="../assets/post-api-v18.js?v=18.1"></script>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>도급 근태·정산 관리자</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f1f5f9}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f1f5f9;z-index:2;font-family:Arial,'Noto Sans KR',sans-serif;color:#475569}
+.spin{width:28px;height:28px;border:4px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div style="text-align:center">
+    <div class="spin"></div>
+    <div>도급 근태·정산 관리자 불러오는 중…</div>
+  </div>
+</div>
+
+<iframe
+  id="app"
+  src="https://script.google.com/macros/s/AKfycbxCzuxN0zgp0C5lrJWlkQXuYvielnBVx251ZcHjtnsGsKd2acNIVI3xJe9rgV9LBtBG/exec?page=admin"
+  title="도급 근태·정산 관리자"
+  allow="clipboard-read; clipboard-write"
+></iframe>
+
 <script>
-let adminSess='', workerCache=[], attendanceCache=[], modalMode='', modalData=null;
-const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';
-function fail(e){alert((e&&e.message)||e||'오류가 발생했습니다.')}
-function ymd(d){const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())}function today(){return ymd(new Date())}function monthStart(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01'}
-function initDates(){dashStart.value=monthStart();dashEnd.value=today();attStart.value=monthStart();attEnd.value=today();logStart.value=monthStart();logEnd.value=today();periodMonth.value=today().slice(0,7)}initDates();
-function adminLoginFn(){google.script.run.withSuccessHandler(r=>{adminSess=r.session;loginBox.hidden=true;app.hidden=false;if(r.must_change)alert('테스트용 기본 PIN 1234입니다. 운영 전 반드시 PIN을 변경하세요.');loadDashboard()}).withFailureHandler(fail).adminLogin(adminPin.value)}
-function tab(id){document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');if(id==='workers')loadWorkers();if(id==='attendance')loadAttendance();if(id==='logs')loadLogs();if(id==='settlement')loadPeriods();if(id==='settings')loadSettings();if(id==='dashboard')loadDashboard()}
-function changePinPrompt(){const cur=prompt('현재 PIN');if(cur===null)return;const n=prompt('새 PIN(4자리 이상)');if(!n)return;google.script.run.withSuccessHandler(()=>alert('PIN이 변경되었습니다.')).withFailureHandler(fail).changeAdminPin(adminSess,cur,n)}
-function loadDashboard(){google.script.run.withSuccessHandler(r=>{metrics.innerHTML=[['총 투입인원',r.workers+'명'],['총 근무일수',r.work_days+'일'],['정상근무',r.normal_hours+'시간'],['연장근무',r.overtime_hours+'시간'],['기본 도급비',money(r.base_amount)],['차감금액','-'+money(r.deduction_amount)],['연장수당','+'+money(r.overtime_amount)],['공급가액',money(r.supply_amount)],['VAT',money(r.vat)],['최종 정산금액',money(r.final_amount)]].map(x=>`<div class="metric"><span class="muted">${x[0]}</span><b>${x[1]}</b></div>`).join('')}).withFailureHandler(fail).getDashboard(adminSess,dashStart.value,dashEnd.value)}
-function loadWorkers(){google.script.run.withSuccessHandler(rows=>{workerCache=rows;workerRows.innerHTML=rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.phone)}</td><td>${esc(r.birth_date)}</td><td>${esc(r.status)}</td><td>${esc(r.joined_at)}</td><td>${r.status==='PENDING'?`<button onclick="approve('${r.worker_id}')">승인</button> `:''}<button class="secondary" onclick="resetPw('${r.worker_id}')">PW 초기화</button></td></tr>`).join('')}).withFailureHandler(fail).listWorkers(adminSess,workerStatus.value)}
-function approve(id){google.script.run.withSuccessHandler(()=>loadWorkers()).withFailureHandler(fail).approveWorker(adminSess,id)}
-function resetPw(id){google.script.run.withSuccessHandler(r=>alert(`${r.name} 초기화 코드: ${r.reset_code}\n10분간 유효합니다.`)).withFailureHandler(fail).issuePasswordReset(adminSess,id)}
-function loadAttendance(){google.script.run.withSuccessHandler(rows=>{attendanceCache=rows;attRows.innerHTML=rows.map(r=>`<tr><td>${r.work_date}</td><td>${esc(r.worker_name)}</td><td>${esc(r.actual_in)}</td><td>${esc(r.actual_out)}</td><td>${esc(r.auto_settle_in)}</td><td>${esc(r.auto_settle_out)}</td><td>${esc(r.final_settle_in||'-')}</td><td>${esc(r.final_settle_out||'-')}</td><td>${r.normal_hours}</td><td>${r.overtime_hours}</td><td>${r.work_type}</td><td>${r.closed?'<span class="warn">마감</span>':'열림'}</td><td>${r.closed?'':`<button onclick="openEdit('${r.attendance_id}')">수정</button>`}</td></tr>`).join('')}).withFailureHandler(fail).listAttendance(adminSess,attStart.value,attEnd.value)}
-function dtLocal(s){return s?String(s).replace(' ','T').slice(0,16):''}
-function openEdit(id){const r=attendanceCache.find(x=>x.attendance_id===id);modalMode='edit';modalData=r;modalTitle.textContent='근태 수정 - '+r.worker_name+' '+r.work_date;modalBody.innerHTML=`<div class="formgrid"><label>실제 출근<input id="mActualIn" type="datetime-local" value="${dtLocal(r.actual_in)}"></label><label>실제 퇴근<input id="mActualOut" type="datetime-local" value="${dtLocal(r.actual_out)}"></label><label>확정 출근<input id="mFinalIn" type="datetime-local" value="${dtLocal(r.final_settle_in)}"></label><label>확정 퇴근<input id="mFinalOut" type="datetime-local" value="${dtLocal(r.final_settle_out)}"></label><label>근무유형<select id="mWorkType"><option value="WEEKDAY" ${r.work_type==='WEEKDAY'?'selected':''}>평일</option><option value="SPECIAL" ${r.work_type==='SPECIAL'?'selected':''}>특근</option></select></label><label>비고<input id="mNote" value="${esc(r.note)}"></label><label class="full">수정사유<input id="mReason" placeholder="필수"></label></div>`;modal.classList.add('show')}
-function renderManual(){modalMode='manual';modalData=null;const opts=workerCache.filter(w=>w.status==='APPROVED').map(w=>`<option value="${w.worker_id}">${esc(w.name)} (${esc(w.phone)})</option>`).join('');modalTitle.textContent='근태 수동등록';modalBody.innerHTML=`<div class="formgrid"><label>날짜<input id="mWorkDate" type="date" value="${today()}"></label><label>작업자<select id="mWorker">${opts}</select></label><label>실제 출근<input id="mActualIn" type="datetime-local"></label><label>실제 퇴근<input id="mActualOut" type="datetime-local"></label><label>근무유형<select id="mWorkType"><option value="WEEKDAY">평일</option><option value="SPECIAL">특근</option></select></label><label>비고<input id="mNote"></label><label class="full">등록사유<input id="mReason" placeholder="필수"></label></div>`;modal.classList.add('show')}function openManual(){if(workerCache.filter(w=>w.status==='APPROVED').length){renderManual();return}google.script.run.withSuccessHandler(rows=>{workerCache=rows;renderManual()}).withFailureHandler(fail).listWorkers(adminSess,'APPROVED')}
-function closeModal(){modal.classList.remove('show')}
-function saveModal(){if(modalMode==='edit'){const patch={actual_in:mActualIn.value,actual_out:mActualOut.value,final_settle_in:mFinalIn.value,final_settle_out:mFinalOut.value,work_type:mWorkType.value,note:mNote.value};google.script.run.withSuccessHandler(()=>{closeModal();loadAttendance()}).withFailureHandler(fail).editAttendance(adminSess,modalData.attendance_id,patch,mReason.value)}else if(modalMode==='manual'){const input={work_date:mWorkDate.value,worker_id:mWorker.value,actual_in:mActualIn.value,actual_out:mActualOut.value,work_type:mWorkType.value,note:mNote.value};google.script.run.withSuccessHandler(()=>{closeModal();loadAttendance()}).withFailureHandler(fail).addManualAttendance(adminSess,input,mReason.value)}}
-function loadLogs(){google.script.run.withSuccessHandler(rows=>{logRows.innerHTML=rows.map(r=>`<tr><td>${r.scanned_at}</td><td>${esc(r.worker_name)}</td><td>${r.qr_type==='IN'?'출근':r.qr_type==='OUT'?'퇴근':esc(r.qr_type)}</td><td>${esc(r.result)}</td><td>${esc(r.message)}</td><td>${esc(r.scanner_id)}</td></tr>`).join('')}).withFailureHandler(fail).listScanLogs(adminSess,logStart.value,logEnd.value,500)}
-function loadPeriods(){google.script.run.withSuccessHandler(rows=>{periodRows.innerHTML=rows.map(r=>`<tr><td>${esc(r.period_name)}</td><td>${r.start_date} ~ ${r.end_date}</td><td>${r.status}</td><td>${r.worker_count}</td><td>${r.work_days}</td><td class="money">${money(r.supply_amount)}</td><td class="money">${money(r.vat)}</td><td class="money"><b>${money(r.final_amount)}</b></td><td>${r.status==='OPEN'?`<button onclick="closePeriod('${r.period_id}')">마감</button>`:`<button class="danger" onclick="reopenPeriod('${r.period_id}')">마감해제</button>`}</td></tr>`).join('')}).withFailureHandler(fail).listSettlementPeriods(adminSess)}
-function makeHalfPeriods(){google.script.run.withSuccessHandler(()=>loadPeriods()).withFailureHandler(fail).ensureHalfMonthPeriods(adminSess,periodMonth.value)}
-function closePeriod(id){if(!confirm('이 정산기간을 마감하시겠습니까? 마감 후 근태 수정이 잠깁니다.'))return;google.script.run.withSuccessHandler(r=>{alert('마감 완료: '+money(r.final_amount));loadPeriods()}).withFailureHandler(fail).closeSettlementPeriod(adminSess,id)}
-function reopenPeriod(id){const reason=prompt('마감 해제 사유를 입력하세요.');if(!reason)return;google.script.run.withSuccessHandler(()=>loadPeriods()).withFailureHandler(fail).reopenSettlementPeriod(adminSess,id,reason)}
-const settingDefs=[['BASE_START_TIME','기준 출근시간','time'],['BASE_END_TIME','기준 퇴근시간','time'],['ROUND_MINUTES','보정 단위(분)','number'],['STANDARD_HOURS','정상근무시간','number'],['WEEKDAY_DAILY_RATE','평일 일단가','number'],['SPECIAL_DAILY_RATE','특근 일단가','number'],['OVERTIME_HOURLY_RATE','연장 시급','number'],['REFERENCE_HOURLY_RATE','참고 기준시급','number'],['VAT_RATE','VAT 비율(0.1=10%)','number'],['QR_TTL_SECONDS','QR 유효초','number'],['PASSWORD_MIN_LENGTH','비밀번호 최소길이','number']];
-function loadSettings(){google.script.run.withSuccessHandler(s=>{settingsForm.innerHTML=settingDefs.map(d=>`<label>${d[1]}<input data-key="${d[0]}" type="${d[2]}" step="any" value="${esc(s[d[0]])}"></label>`).join('')}).withFailureHandler(fail).getSettingsForAdmin(adminSess)}
-function saveSettings(){const o={};document.querySelectorAll('#settingsForm input').forEach(i=>o[i.dataset.key]=i.value);google.script.run.withSuccessHandler(()=>alert('저장되었습니다.')).withFailureHandler(fail).updateSettings(adminSess,o)}
-</script></body></html>
+const app=document.getElementById('app');
+const loading=document.getElementById('loading');
+app.addEventListener('load',()=>{
+  loading.style.display='none';
+});
+</script>
+</body>
+</html>
