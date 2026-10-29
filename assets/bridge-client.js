@@ -2,122 +2,131 @@
   'use strict';
 
   const cfg = window.DAHAM_CONFIG || {};
-  const baseUrl = String(cfg.appsScriptUrl || '').trim();
-  const timeoutMs = Number(cfg.bridgeTimeoutMs || 60000);
+  const endpoint = String(cfg.appsScriptUrl || '').trim();
+  const timeoutMs = Number(cfg.bridgeTimeoutMs || 45000);
 
-  if (!baseUrl) {
-    console.error('[DAHAM] Apps Script URL이 설정되지 않았습니다.');
-    return;
+  let seq = 0;
+  let connected = false;
+  const pending = new Map();
+
+  function emit(name, detail) {
+    window.dispatchEvent(
+      new CustomEvent(name, {detail: detail || {}})
+    );
   }
 
-  const bridgeUrl =
-    baseUrl +
-    (baseUrl.includes('?') ? '&' : '?') +
-    'page=' + encodeURIComponent(cfg.bridgePage || 'bridge');
+  function cleanup(id) {
+    const item = pending.get(id);
+    if (!item) return;
 
-  let iframe = null;
-  let ready = false;
-  let seq = 0;
-  const pending = new Map();
-  const queue = [];
+    clearTimeout(item.timer);
 
-  function ensureFrame() {
-    if (iframe) return;
+    if (item.form && item.form.remove) item.form.remove();
+    if (item.iframe && item.iframe.remove) {
+      // 응답 스크립트가 끝난 다음 제거되도록 한 틱 늦춘다.
+      setTimeout(() => item.iframe.remove(), 0);
+    }
 
-    iframe = document.createElement('iframe');
-    iframe.id = 'dahamApiBridge';
-    iframe.src = bridgeUrl;
+    pending.delete(id);
+  }
+
+  function callServer(fn, args, success, failure) {
+    if (!endpoint) {
+      const err = new Error('Apps Script API 주소가 설정되지 않았습니다.');
+      if (typeof failure === 'function') failure(err);
+      else console.error(err);
+      return;
+    }
+
+    const id = 'req-' + Date.now() + '-' + (++seq);
+    const frameName = 'dahamPostFrame_' + id.replace(/[^a-zA-Z0-9_-]/g, '');
+
+    const iframe = document.createElement('iframe');
+    iframe.name = frameName;
+    iframe.id = frameName;
     iframe.setAttribute('aria-hidden', 'true');
     iframe.setAttribute('tabindex', '-1');
     iframe.style.cssText =
       'position:fixed;width:2px;height:2px;left:-9999px;top:-9999px;' +
       'border:0;opacity:.01;pointer-events:none;';
 
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.postMessage({type:'DAHAM_BRIDGE_PING'}, '*');
-      } catch (e) {}
-    };
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = endpoint;
+    form.target = frameName;
+    form.style.display = 'none';
+    form.acceptCharset = 'UTF-8';
 
-    const mount = () => {
-      if (!iframe.isConnected) document.body.appendChild(iframe);
-    };
-
-    if (document.body) mount();
-    else window.addEventListener('DOMContentLoaded', mount, {once:true});
-  }
-
-  function flushQueue() {
-    if (!ready || !iframe || !iframe.contentWindow) return;
-
-    while (queue.length) {
-      iframe.contentWindow.postMessage(queue.shift(), '*');
-    }
-  }
-
-  function sendCall(fn, args, success, failure) {
-    ensureFrame();
-
-    const id = 'call-' + Date.now() + '-' + (++seq);
-    const payload = {
-      type: 'DAHAM_BRIDGE_CALL',
-      id,
+    const fields = {
+      request_id: id,
       fn: String(fn),
-      args: Array.isArray(args) ? args : []
+      origin: window.location.origin,
+      payload: JSON.stringify(Array.isArray(args) ? args : [])
     };
+
+    Object.keys(fields).forEach(name => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      input.value = fields[name];
+      form.appendChild(input);
+    });
 
     const timer = setTimeout(() => {
       const item = pending.get(id);
       if (!item) return;
 
-      pending.delete(id);
+      cleanup(id);
 
       const err = new Error(
-        '서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.'
+        '서버 응답이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.'
       );
 
       if (typeof item.failure === 'function') item.failure(err);
       else console.error(err);
+
+      emit('daham-bridge-error', {message:err.message});
     }, timeoutMs);
 
-    pending.set(id, {success, failure, timer});
+    pending.set(id, {
+      success,
+      failure,
+      iframe,
+      form,
+      timer,
+      fn
+    });
 
-    if (ready && iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage(payload, '*');
-    } else {
-      queue.push(payload);
-    }
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    form.submit();
   }
 
   window.addEventListener('message', event => {
+    // Apps Script 응답은 Google 도메인 iframe에서 top.postMessage로 들어온다.
     const data = event.data || {};
 
-    if (data.type === 'DAHAM_BRIDGE_READY') {
-      if (!ready) {
-        ready = true;
-        window.dispatchEvent(
-          new CustomEvent('daham-bridge-ready', {
-            detail:{version:data.version || '17.1'}
-          })
-        );
-      }
-
-      flushQueue();
-      return;
-    }
-
-    if (data.type !== 'DAHAM_BRIDGE_RESULT' || !data.id) return;
+    if (data.type !== 'DAHAM_POST_API_RESULT' || !data.id) return;
 
     const item = pending.get(data.id);
     if (!item) return;
 
-    clearTimeout(item.timer);
-    pending.delete(data.id);
+    const success = item.success;
+    const failure = item.failure;
+    const wasPing = item.fn === 'ping';
+
+    cleanup(data.id);
 
     if (data.ok) {
-      if (typeof item.success === 'function') {
-        item.success(data.result);
+      if (wasPing && !connected) {
+        connected = true;
+        emit('daham-bridge-ready', {
+          version:'18',
+          transport:'POST'
+        });
       }
+
+      if (typeof success === 'function') success(data.result);
       return;
     }
 
@@ -127,17 +136,17 @@
         : '서버 처리 중 오류가 발생했습니다.'
     );
 
-    if (typeof item.failure === 'function') item.failure(err);
+    if (typeof failure === 'function') failure(err);
     else console.error(err);
   });
 
   function createRunner() {
     const state = {
-      success: null,
-      failure: null
+      success:null,
+      failure:null
     };
 
-    let proxy = null;
+    let proxy;
 
     proxy = new Proxy({}, {
       get(_target, prop) {
@@ -162,7 +171,7 @@
         if (prop === 'then') return undefined;
 
         return (...args) => {
-          sendCall(
+          callServer(
             String(prop),
             args,
             state.success,
@@ -179,46 +188,36 @@
   if (!window.google.script) window.google.script = {};
 
   Object.defineProperty(window.google.script, 'run', {
-    configurable: true,
-    enumerable: true,
-    get: createRunner
+    configurable:true,
+    enumerable:true,
+    get:createRunner
   });
 
-  ensureFrame();
-
-  const pingTimer = setInterval(() => {
-    if (ready) {
-      clearInterval(pingTimer);
-      return;
+  window.DAHAM_BRIDGE = {
+    get ready(){ return connected; },
+    transport:'POST',
+    ping(){
+      callServer('ping', [], () => {}, () => {});
     }
+  };
 
-    try {
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({type:'DAHAM_BRIDGE_PING'}, '*');
+  // body가 준비된 뒤 실제 POST ping으로 서버 연결을 확인한다.
+  const start = () => {
+    callServer(
+      'ping',
+      [],
+      () => {},
+      err => {
+        emit('daham-bridge-error', {
+          message:
+            (err && err.message)
+              ? err.message
+              : '서버 연결 실패'
+        });
       }
-    } catch (e) {}
-  }, 500);
+    );
+  };
 
-  setTimeout(() => {
-    if (!ready) {
-      window.dispatchEvent(
-        new CustomEvent('daham-bridge-error', {
-          detail:{
-            message:'서버 연결 실패 · Apps Script 배포와 bridge.html을 확인해주세요.'
-          }
-        })
-      );
-    }
-  }, 8000);
-
-  // bridge가 페이지 코드보다 먼저 준비된 경우에도 상태를 다시 알려준다.
-  window.addEventListener('DOMContentLoaded', () => {
-    if (ready) {
-      window.dispatchEvent(
-        new CustomEvent('daham-bridge-ready', {
-          detail:{version:'17.2'}
-        })
-      );
-    }
-  });
+  if (document.body) start();
+  else window.addEventListener('DOMContentLoaded', start, {once:true});
 })();
