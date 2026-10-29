@@ -13,18 +13,18 @@ small{display:block;margin-top:8px;color:#64748b}
 </head>
 <body>
 <div class="box">
-<h2>DAHAM 서버 연결 테스트</h2>
+<h2>DAHAM 서버 연결 테스트</h2><div style="font-size:12px;color:#64748b;margin-bottom:12px">TEST v18.1</div>
 <div id="state" class="wait">POST API 연결 확인 중…</div>
 <small id="detail">Apps Script에 ping 요청을 보내고 있습니다.</small>
 </div>
 
-<script src="../assets/config.js"></script>
-<script src="../assets/bridge-client.js"></script>
+<script src="../assets/config-v18.js?v=18.1"></script>
+<script src="../assets/post-api-v18.js?v=18.1"></script>
 <script>
 window.addEventListener('daham-bridge-ready',e=>{
   state.textContent='서버 연결 성공';
   state.className='ok';
-  detail.textContent='전송방식: POST API · v18';
+  detail.textContent='전송방식: POST API · v18.1';
 });
 window.addEventListener('daham-bridge-error',e=>{
   state.textContent='서버 연결 실패';
@@ -35,7 +35,7 @@ window.addEventListener('load',()=>{
   if(window.DAHAM_BRIDGE&&window.DAHAM_BRIDGE.ready){
     state.textContent='서버 연결 성공';
     state.className='ok';
-    detail.textContent='전송방식: POST API · v18';
+    detail.textContent='전송방식: POST API · v18.1';
   }
 });
 </script>

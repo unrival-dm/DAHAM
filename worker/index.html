@@ -142,8 +142,8 @@ button:disabled{opacity:.55;cursor:wait}
   </div>
 </div>
 
-<script src="../assets/config.js"></script>
-<script src="../assets/bridge-client.js"></script>
+<script src="../assets/config-v18.js?v=18.1"></script>
+<script src="../assets/post-api-v18.js?v=18.1"></script>
 <script>
 let sess='', timer=null, qrLoading=false, currentQrType='';
 const PHONE_KEY='daham_saved_phone_v1';
@@ -374,18 +374,29 @@ window.addEventListener('daham-bridge-error',e=>{
 });
 
 window.addEventListener('load',()=>{
-  if (window.DAHAM_BRIDGE && window.DAHAM_BRIDGE.ready) {
-    serverState.textContent='서버 연결됨';
-    serverState.className='serverState ok';
-    loginBtn.disabled=false;
-  } else {
-    loginBtn.disabled=true;
-  }
+  loginBtn.disabled=true;
   const saved=localStorage.getItem(PHONE_KEY)||'';
 
   if(saved){
     loginPhone.value=saved;
     rememberPhone.checked=true;
+  }
+});
+window.addEventListener('daham-bridge-ready',()=>{
+  serverState.textContent='서버 연결됨';
+  serverState.className='serverState ok';
+  loginBtn.disabled=false;
+});
+window.addEventListener('daham-bridge-error',e=>{
+  serverState.textContent=(e.detail&&e.detail.message)||'서버 연결 실패';
+  serverState.className='serverState err';
+  loginBtn.disabled=false;
+});
+window.addEventListener('load',()=>{
+  if(window.DAHAM_BRIDGE&&window.DAHAM_BRIDGE.ready){
+    serverState.textContent='서버 연결됨';
+    serverState.className='serverState ok';
+    loginBtn.disabled=false;
   }
 });
 </script>

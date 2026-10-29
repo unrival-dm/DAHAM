@@ -15,8 +15,8 @@
 <section id="settings" class="panel card"><h2>정산 기준</h2><div id="settingsForm" class="formgrid"></div><div style="margin-top:12px"><button onclick="saveSettings()">저장</button></div></section>
 </div></div>
 <div id="modal" class="modal"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="toolbar" style="justify-content:flex-end;margin-top:14px"><button class="ghost" onclick="closeModal()">취소</button><button id="modalSave" onclick="saveModal()">저장</button></div></div></div>
-<script src="../assets/config.js"></script>
-<script src="../assets/bridge-client.js"></script>
+<script src="../assets/config-v18.js?v=18.1"></script>
+<script src="../assets/post-api-v18.js?v=18.1"></script>
 <script>
 let adminSess='', workerCache=[], attendanceCache=[], modalMode='', modalData=null;
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';
