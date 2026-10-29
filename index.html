@@ -8,10 +8,11 @@
 <style>
   *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
   #app{position:fixed;inset:0;background:#0f172a}
+  #cameraBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(78vw,420px);aspect-ratio:1;background:#000;border:4px solid rgba(255,255,255,.92);border-radius:28px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)}
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;transform:scaleX(-1)}
-  #shade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(15,23,42,.55),rgba(15,23,42,.08) 35%,rgba(15,23,42,.08) 65%,rgba(15,23,42,.65));pointer-events:none}
-  #frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(72vw,420px);aspect-ratio:1;border:4px solid rgba(255,255,255,.9);border-radius:28px;box-shadow:0 0 0 9999px rgba(15,23,42,.12);pointer-events:none}
-  #frame:before,#frame:after{content:"";position:absolute;inset:18%;border:1px dashed rgba(255,255,255,.35);border-radius:18px}
+  #frame{position:absolute;inset:0;pointer-events:none}
+  #frame:before{content:"";position:absolute;inset:17%;border:2px dashed rgba(255,255,255,.55);border-radius:18px}
+  #frame:after{content:"QR을 네모 안에 보여주세요";position:absolute;left:50%;bottom:18px;transform:translateX(-50%);white-space:nowrap;padding:7px 11px;border-radius:999px;background:rgba(15,23,42,.72);font-size:13px;color:#fff}
   header{position:absolute;z-index:3;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 18px 16px;text-align:center;text-shadow:0 2px 8px #000}
   h1{margin:0;font-size:28px} header p{margin:8px 0 0;font-size:15px;color:#e2e8f0}
   #status{position:absolute;z-index:4;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);min-width:min(88vw,520px);max-width:92vw;padding:15px 18px;border-radius:18px;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);text-align:center;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25)}
@@ -30,8 +31,10 @@
 </head>
 <body>
 <div id="app">
-  <video id="video" playsinline muted autoplay></video>
-  <div id="shade"></div><div id="frame"></div>
+  <div id="cameraBox">
+    <video id="video" playsinline muted autoplay></video>
+    <div id="frame"></div>
+  </div>
   <header><h1>도급 출퇴근</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
   <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small></div>
   <div id="gate"><div class="card"><h2 id="gateTitle">카메라 권한이 필요합니다</h2><p id="gateText">현장 스캐너에서 QR을 읽기 위해 카메라 사용 권한이 필요합니다.</p><button id="startBtn">카메라 허용하고 시작</button></div></div>
@@ -181,18 +184,23 @@
     try {
       if (!processing && video.readyState >= 2 && video.videoWidth && video.videoHeight) {
         let text = '';
+
+        // 화면에 보이는 정사각형 카메라 영역과 동일하게 원본 영상 중앙 정사각형만 잘라냅니다.
+        const srcSize = Math.min(video.videoWidth, video.videoHeight);
+        const sx = Math.max(0, Math.floor((video.videoWidth - srcSize) / 2));
+        const sy = Math.max(0, Math.floor((video.videoHeight - srcSize) / 2));
+        const outSize = Math.min(720, srcSize);
+        canvas.width = outSize;
+        canvas.height = outSize;
+        ctx.drawImage(video, sx, sy, srcSize, srcSize, 0, 0, outSize, outSize);
+
         if (detector) {
           try {
-            const codes = await detector.detect(video);
+            const codes = await detector.detect(canvas);
             if (codes && codes.length) text = String(codes[0].rawValue || '').trim();
           } catch(e) {}
         }
         if (!text && typeof jsQR === 'function') {
-          const maxW = 720;
-          const scale = Math.min(1, maxW / video.videoWidth);
-          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const img = ctx.getImageData(0,0,canvas.width,canvas.height);
           const code = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
           if (code && code.data) text = String(code.data).trim();
