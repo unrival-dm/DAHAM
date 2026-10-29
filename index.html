@@ -1,293 +1,269 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>도급 출퇴근 스캐너</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <style>
-    *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
-    body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-    .app{height:100%;display:flex;flex-direction:column;padding:14px;gap:12px}
-    .top{text-align:center;flex:none}
-    h1{margin:2px 0 4px;font-size:clamp(22px,5vw,34px)}
-    .sub{margin:0;color:#94a3b8;font-size:clamp(13px,3vw,17px)}
-    #reader{position:relative;flex:1;min-height:0;background:#000;border-radius:20px;overflow:hidden;box-shadow:0 12px 36px rgba(0,0,0,.25)}
-    #reader video{width:100%!important;height:100%!important;object-fit:cover!important}
-    #reader img{display:none!important}
-    #status{flex:none;min-height:88px;border-radius:18px;background:#1e293b;display:flex;align-items:center;justify-content:center;text-align:center;padding:13px 18px;font-size:clamp(20px,4.5vw,31px);font-weight:800;line-height:1.25}
-    #status.ok{background:#047857}
-    #status.bad{background:#b91c1c}
-    #status.wait{background:#334155}
-    #status.work{background:#a16207}
-    #overlay{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.98);display:none;align-items:center;justify-content:center;padding:24px}
-    #overlay.show{display:flex}
-    .card{max-width:520px;width:100%;background:#fff;color:#0f172a;border-radius:22px;padding:26px;text-align:center}
-    .card h2{margin:0 0 10px;font-size:27px}
-    .card p{margin:0 0 18px;line-height:1.55;color:#475569;font-size:16px;white-space:pre-line}
-    .card button{width:100%;border:0;border-radius:14px;padding:17px;background:#2563eb;color:#fff;font-size:19px;font-weight:800}
-    .small{margin-top:13px!important;font-size:13px!important;color:#64748b!important}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>도급 출퇴근 스캐너</title>
+<style>
+  *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
+  #app{position:fixed;inset:0;background:#0f172a}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #shade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(15,23,42,.55),rgba(15,23,42,.08) 35%,rgba(15,23,42,.08) 65%,rgba(15,23,42,.65));pointer-events:none}
+  #frame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(72vw,420px);aspect-ratio:1;border:4px solid rgba(255,255,255,.9);border-radius:28px;box-shadow:0 0 0 9999px rgba(15,23,42,.12);pointer-events:none}
+  #frame:before,#frame:after{content:"";position:absolute;inset:18%;border:1px dashed rgba(255,255,255,.35);border-radius:18px}
+  header{position:absolute;z-index:3;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 18px 16px;text-align:center;text-shadow:0 2px 8px #000}
+  h1{margin:0;font-size:28px} header p{margin:8px 0 0;font-size:15px;color:#e2e8f0}
+  #status{position:absolute;z-index:4;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);min-width:min(88vw,520px);max-width:92vw;padding:15px 18px;border-radius:18px;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);text-align:center;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  #status small{display:block;margin-top:6px;font-size:13px;font-weight:400;color:#cbd5e1;word-break:break-word}
+  #gate{position:absolute;z-index:10;inset:0;display:none;align-items:center;justify-content:center;padding:22px;background:#0f172a}
+  #gate.show{display:flex}
+  .card{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:24px;padding:28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .card h2{margin:0 0 12px;font-size:27px}.card p{line-height:1.55;color:#475569}
+  button{width:100%;border:0;border-radius:14px;padding:16px 18px;background:#2563eb;color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+  button:disabled{opacity:.55;cursor:wait}
+  #result{position:absolute;z-index:9;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.74);padding:22px}
+  #result.show{display:flex}.resultCard{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:26px;padding:34px;text-align:center}.resultCard .big{font-size:30px;font-weight:900}.resultCard .sub{margin-top:10px;color:#475569;font-size:17px}
+  canvas{display:none}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
 <body>
-  <div class="app">
-    <div class="top">
-      <h1>도급 출퇴근</h1>
-      <p class="sub">작업자 QR을 카메라에 보여주세요</p>
-    </div>
-    <div id="reader"></div>
-    <div id="status" class="wait">카메라 준비 중...</div>
-  </div>
-
-  <div id="overlay">
-    <div class="card">
-      <h2 id="overlayTitle">카메라 권한이 필요합니다</h2>
-      <p id="overlayText">QR을 읽기 위해 카메라 사용 권한이 필요합니다.</p>
-      <button id="cameraBtn" type="button">카메라 허용하고 시작</button>
-      <p class="small">최초 1회만 허용하면 이후에는 페이지를 열어둔 채 QR만 보여주면 됩니다.</p>
-    </div>
-  </div>
-
+<div id="app">
+  <video id="video" playsinline muted autoplay></video>
+  <div id="shade"></div><div id="frame"></div>
+  <header><h1>도급 출퇴근</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
+  <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small></div>
+  <div id="gate"><div class="card"><h2 id="gateTitle">카메라 권한이 필요합니다</h2><p id="gateText">현장 스캐너에서 QR을 읽기 위해 카메라 사용 권한이 필요합니다.</p><button id="startBtn">카메라 허용하고 시작</button></div></div>
+  <div id="result"><div class="resultCard"><div class="big" id="resultBig"></div><div class="sub" id="resultSub"></div></div></div>
+  <canvas id="canvas"></canvas>
+</div>
 <script>
 (() => {
+  'use strict';
+
+  // 현재 Apps Script 웹앱 /exec 주소. 별도 config.js는 사용하지 않습니다.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxCzuxN0zgp0C5lrJWlkQXuYvielnBVx251ZcHjtnsGsKd2acNIVI3xJe9rgV9LBtBG/exec';
+  const SCANNER_ID = 'GITHUB-TABLET-01';
+  const SCAN_INTERVAL_MS = 180;
+  const SAME_QR_COOLDOWN_MS = 4500;
+  const RESULT_SHOW_MS = 1900;
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', {willReadFrequently:true});
   const statusEl = document.getElementById('status');
-  const overlay = document.getElementById('overlay');
-  const overlayTitle = document.getElementById('overlayTitle');
-  const overlayText = document.getElementById('overlayText');
-  const cameraBtn = document.getElementById('cameraBtn');
+  const gate = document.getElementById('gate');
+  const gateTitle = document.getElementById('gateTitle');
+  const gateText = document.getElementById('gateText');
+  const startBtn = document.getElementById('startBtn');
+  const resultEl = document.getElementById('result');
+  const resultBig = document.getElementById('resultBig');
+  const resultSub = document.getElementById('resultSub');
 
-  let scanner = null;
-  let running = false;
+  let stream = null;
   let starting = false;
+  let running = false;
   let processing = false;
-  let lastQr = '';
-  let lastQrAt = 0;
-  let wakeLock = null;
+  let detector = null;
+  let lastToken = '';
+  let lastTokenAt = 0;
+  let scanTimer = null;
 
-  let scannerId = localStorage.getItem('contractScannerId');
-  if (!scannerId) {
-    scannerId = 'TABLET-' + Math.random().toString(36).slice(2,10).toUpperCase();
-    localStorage.setItem('contractScannerId', scannerId);
+  function setStatus(main, sub='') {
+    statusEl.innerHTML = escapeHtml(main) + (sub ? '<small>' + escapeHtml(sub) + '</small>' : '');
+  }
+  function escapeHtml(s){ return String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+  function showGate(title, text, buttonText='카메라 허용하고 시작') {
+    gateTitle.textContent = title;
+    gateText.textContent = text;
+    startBtn.textContent = buttonText;
+    startBtn.disabled = false;
+    gate.classList.add('show');
+  }
+  function hideGate(){ gate.classList.remove('show'); }
+
+  async function stopCamera(){
+    running = false;
+    if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+    if (stream) {
+      stream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+      stream = null;
+    }
+    video.srcObject = null;
   }
 
-  function setStatus(text, type) {
-    statusEl.textContent = text;
-    statusEl.className = type || 'wait';
-  }
-
-  function showOverlay(title, text) {
-    overlayTitle.textContent = title;
-    overlayText.textContent = text;
-    overlay.classList.add('show');
-  }
-
-  function hideOverlay() {
-    overlay.classList.remove('show');
-  }
-
-  function apiConfigured() {
-    return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(API_URL);
-  }
-
-  async function keepAwake() {
+  async function startCamera(){
+    if (starting || running) return;
+    starting = true;
+    startBtn.disabled = true;
+    setStatus('카메라 연결 중…');
     try {
-      if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-    } catch (_) {}
-  }
+      if (!window.isSecureContext) throw new Error('HTTPS 보안 연결이 필요합니다.');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 브라우저는 카메라 기능을 지원하지 않습니다.');
 
-  function callScanApi(token) {
-    return new Promise((resolve, reject) => {
-      if (!apiConfigured()) {
-        reject(new Error('config.js에 Apps Script 웹앱 주소가 설정되지 않았습니다.'));
-        return;
+      await stopCamera();
+      // 일부 모바일 브라우저는 facingMode의 { ideal: ... } 형식을 거부합니다.
+      // 1차: 후면 카메라를 문자열로 요청
+      // 2차: 실패하면 facingMode 조건 없이 사용 가능한 카메라를 요청
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio:false,
+          video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}}
+        });
+      } catch (firstErr) {
+        console.warn('후면 카메라 지정 실패, 기본 카메라로 재시도:', firstErr);
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio:false,
+          video:{width:{ideal:1280}, height:{ideal:720}}
+        });
+      }
+      video.srcObject = stream;
+      await video.play();
+
+      if ('BarcodeDetector' in window) {
+        try {
+          const supported = await BarcodeDetector.getSupportedFormats();
+          if (supported.includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']});
+        } catch(e) { detector = null; }
       }
 
-      const callback = '__contractScanCb_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+      running = true;
+      hideGate();
+      setStatus('스캔 대기 중', 'QR만 카메라에 보여주세요. 카메라는 계속 켜져 있습니다.');
+      scheduleScan(100);
+    } catch (err) {
+      await stopCamera();
+      const name = err && err.name ? err.name : '';
+      const msg = err && err.message ? err.message : String(err || '알 수 없는 오류');
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        showGate('카메라 권한이 차단되어 있습니다', '브라우저 주소창의 사이트 설정에서 카메라를 허용한 뒤 다시 눌러주세요.', '다시 시도');
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        showGate('카메라를 찾을 수 없습니다', '기기에 사용 가능한 카메라가 있는지 확인해 주세요.', '다시 시도');
+      } else {
+        showGate('카메라를 시작할 수 없습니다', msg, '다시 시도');
+      }
+      setStatus('카메라 시작 실패', msg);
+    } finally {
+      starting = false;
+      startBtn.disabled = false;
+    }
+  }
+
+  function scheduleScan(delay=SCAN_INTERVAL_MS){
+    if (!running) return;
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = setTimeout(scanLoop, delay);
+  }
+
+  async function scanLoop(){
+    if (!running) return;
+    try {
+      if (!processing && video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+        let text = '';
+        if (detector) {
+          try {
+            const codes = await detector.detect(video);
+            if (codes && codes.length) text = String(codes[0].rawValue || '').trim();
+          } catch(e) {}
+        }
+        if (!text && typeof jsQR === 'function') {
+          const maxW = 720;
+          const scale = Math.min(1, maxW / video.videoWidth);
+          canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+          canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = ctx.getImageData(0,0,canvas.width,canvas.height);
+          const code = jsQR(img.data, img.width, img.height, {inversionAttempts:'dontInvert'});
+          if (code && code.data) text = String(code.data).trim();
+        }
+        if (text) await handleQr(text);
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      scheduleScan();
+    }
+  }
+
+  async function handleQr(token){
+    const now = Date.now();
+    if (processing) return;
+    if (token === lastToken && now - lastTokenAt < SAME_QR_COOLDOWN_MS) return;
+    lastToken = token;
+    lastTokenAt = now;
+    processing = true;
+    setStatus('QR 확인 중…');
+    try {
+      const res = await callScanApi(token);
+      const ok = !!(res && res.ok);
+      const message = (res && res.message) ? res.message : (ok ? '처리 완료' : '처리하지 못했습니다.');
+      const name = (res && (res.name || res.worker_name)) ? (res.name || res.worker_name) : '';
+      const type = (res && (res.type || res.qr_type)) ? String(res.type || res.qr_type).toUpperCase() : '';
+      const typeKo = type === 'IN' ? '출근' : type === 'OUT' ? '퇴근' : '';
+      showResult(ok ? (name ? name : (typeKo ? typeKo + ' 완료' : '처리 완료')) : '처리 실패', message);
+      setStatus(ok ? '처리 완료' : '확인 필요', message);
+    } catch(err) {
+      const msg = err && err.message ? err.message : '서버 연결 오류';
+      showResult('서버 연결 오류', msg);
+      setStatus('서버 연결 오류', msg);
+    } finally {
+      setTimeout(() => {
+        processing = false;
+        resultEl.classList.remove('show');
+        if (running) setStatus('스캔 대기 중', '다음 작업자의 QR을 보여주세요.');
+      }, RESULT_SHOW_MS);
+    }
+  }
+
+  function showResult(big, sub){
+    resultBig.textContent = big;
+    resultSub.textContent = sub || '';
+    resultEl.classList.add('show');
+  }
+
+  function callScanApi(token){
+    return new Promise((resolve,reject) => {
+      const cb = '__dahamScanCb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
       const script = document.createElement('script');
-      let finished = false;
-
+      let done = false;
       const cleanup = () => {
-        if (finished) return;
-        finished = true;
-        clearTimeout(timer);
-        try { delete window[callback]; } catch (_) { window[callback] = undefined; }
-        script.remove();
+        if (done) return;
+        done = true;
+        try { delete window[cb]; } catch(e) { window[cb] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
       };
-
-      window[callback] = data => {
-        cleanup();
-        resolve(data);
-      };
-
-      const sep = API_URL.includes('?') ? '&' : '?';
-      script.src = API_URL + sep
-        + 'api=scan'
-        + '&token=' + encodeURIComponent(token)
-        + '&scanner=' + encodeURIComponent(scannerId)
-        + '&callback=' + encodeURIComponent(callback)
-        + '&_=' + Date.now();
-      script.async = true;
-      script.onerror = () => {
-        cleanup();
-        reject(new Error('서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.'));
-      };
-
-      const timer = setTimeout(() => {
-        cleanup();
-        reject(new Error('서버 응답 시간이 초과되었습니다.'));
-      }, 10000);
-
+      const timer = setTimeout(() => { cleanup(); reject(new Error('서버 응답 시간이 초과되었습니다.')); }, 12000);
+      window[cb] = data => { clearTimeout(timer); cleanup(); resolve(data || {}); };
+      script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('Apps Script API에 연결할 수 없습니다.')); };
+      const qs = new URLSearchParams({api:'scan', token:token, scanner:SCANNER_ID, callback:cb, _:String(Date.now())});
+      script.src = API_URL + '?' + qs.toString();
       document.head.appendChild(script);
     });
   }
 
-  async function onDecoded(text) {
-    const now = Date.now();
-    text = String(text || '').trim();
-    if (!text || processing) return;
-    if (text === lastQr && now - lastQrAt < 3500) return;
-
-    processing = true;
-    lastQr = text;
-    lastQrAt = now;
-    setStatus('처리 중...', 'work');
-
-    try {
-      const r = await callScanApi(text);
-      if (r && r.ok) {
-        const typeText = r.type === 'IN' ? '출근' : '퇴근';
-        setStatus(`${r.name} · ${r.time} · ${typeText} 완료`, 'ok');
-      } else {
-        setStatus((r && r.message) || '처리할 수 없습니다.', 'bad');
-      }
-    } catch (e) {
-      setStatus(e.message || '통신 오류', 'bad');
-    }
-
-    setTimeout(() => {
-      processing = false;
-      setStatus('스캔 대기 중', 'wait');
-    }, 1800);
-  }
-
-  function onScanFailure(_) {}
-
-  let startPromise = null;
-
-  async function resetScanner_() {
-    const old = scanner;
-    scanner = null;
-    running = false;
-    if (!old) return;
-    try {
-      const state = typeof old.getState === 'function' ? old.getState() : null;
-      if (state === 2) await old.stop();
-    } catch (_) {}
-    try { old.clear(); } catch (_) {}
-  }
-
-  function cameraErrorText_(e) {
-    if (!e) return '알 수 없는 카메라 오류입니다.';
-    return e.message || String(e);
-  }
-
-  async function startCamera() {
-    if (running) return true;
-    if (startPromise) return startPromise;
-
-    startPromise = (async () => {
-      starting = true;
-      setStatus('카메라 준비 중...', 'wait');
-
-      if (!apiConfigured()) {
-        showOverlay('서버 주소 설정 필요', 'Apps Script 웹앱 /exec 주소를 확인해주세요.');
-        setStatus('서버 주소를 확인해주세요.', 'bad');
-        return false;
-      }
-
-      if (!window.isSecureContext) {
-        showOverlay('HTTPS가 필요합니다', '카메라는 HTTPS 페이지에서만 사용할 수 있습니다.');
-        setStatus('HTTPS 접속이 필요합니다.', 'bad');
-        return false;
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showOverlay('카메라를 사용할 수 없습니다', '이 브라우저는 카메라 접근을 지원하지 않습니다. 최신 Chrome 또는 Safari를 사용해주세요.');
-        setStatus('카메라를 사용할 수 없습니다.', 'bad');
-        return false;
-      }
-
-      try {
-        await resetScanner_();
-        scanner = new Html5Qrcode('reader', {verbose:false});
-        await scanner.start(
-          {facingMode:{ideal:'environment'}},
-          {
-            fps:12,
-            qrbox:(w,h) => {
-              const size = Math.floor(Math.min(w,h) * 0.72);
-              return {width:size,height:size};
-            },
-            aspectRatio:1.333334,
-            disableFlip:false
-          },
-          onDecoded,
-          onScanFailure
-        );
-        running = true;
-        hideOverlay();
-        setStatus('스캔 대기 중', 'wait');
-        keepAwake();
-        return true;
-      } catch (e) {
-        await resetScanner_();
-        const msg = cameraErrorText_(e);
-        if (/permission|denied|notallowed/i.test(msg) || e?.name === 'NotAllowedError') {
-          showOverlay('카메라 권한이 필요합니다', '아래 버튼을 한 번 눌러 카메라 사용을 허용해주세요.\n이미 차단했다면 브라우저의 사이트 설정에서 카메라를 허용해야 합니다.');
-        } else {
-          showOverlay('카메라를 시작할 수 없습니다', msg);
-        }
-        setStatus('카메라를 확인해주세요.', 'bad');
-        return false;
-      } finally {
-        starting = false;
-      }
-    })();
-
-    try {
-      return await startPromise;
-    } finally {
-      startPromise = null;
-    }
-  }
-
-  async function requestPermission() {
-    if (cameraBtn.disabled || running || startPromise) return;
-    cameraBtn.disabled = true;
-    cameraBtn.textContent = '카메라 연결 중...';
-    try {
-      await startCamera();
-    } finally {
-      cameraBtn.disabled = false;
-      cameraBtn.textContent = '카메라 허용하고 시작';
-    }
-  }
-
-  cameraBtn.addEventListener('click', requestPermission);
+  startBtn.addEventListener('click', startCamera);
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) keepAwake();
+    // 화면이 다시 활성화된 경우 스트림이 브라우저에 의해 종료됐을 때만 재연결 안내.
+    if (!document.hidden && running && stream && stream.getVideoTracks().every(t => t.readyState === 'ended')) {
+      stopCamera().then(() => showGate('카메라가 중지되었습니다', '다시 시작 버튼을 눌러 카메라를 연결해 주세요.', '카메라 다시 시작'));
+    }
   });
 
-  // 페이지 최초 진입 시 단 한 번만 자동 시작을 시도합니다.
-  // 실패했을 때만 오버레이 버튼을 통해 다시 시도합니다.
+  window.addEventListener('beforeunload', stopCamera);
+
+  // 자동 시작은 한 번만 시도합니다. 모바일 정책상 권한 요청이 자동으로 뜨지 않으면 버튼을 표시합니다.
   window.addEventListener('load', () => {
-    setTimeout(() => { startCamera(); }, 350);
+    setTimeout(() => {
+      startCamera().catch(() => {});
+      setTimeout(() => {
+        if (!running && !starting && !gate.classList.contains('show')) {
+          showGate('카메라 권한이 필요합니다', '아래 버튼을 한 번 누르면 카메라 권한 요청이 표시됩니다. 이후에는 QR만 보여주면 됩니다.');
+        }
+      }, 1200);
+    }, 250);
   }, {once:true});
 })();
 </script>
