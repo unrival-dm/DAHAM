@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box}
+:root{font-family:Arial,'Noto Sans KR',sans-serif;color:#172033;background:#f1f5f9}
+body{margin:0;background:linear-gradient(180deg,#eff6ff 0,#f8fafc 240px,#f1f5f9 100%);min-height:100vh}
+.wrap{max-width:460px;margin:0 auto;padding:24px 16px 40px}
+.brand{text-align:center;margin:8px 0 20px}
+.brand h1{margin:0;font-size:27px;letter-spacing:-1px}
+.brand p{margin:7px 0 0;color:#64748b;font-size:14px}
+.card{background:#fff;border-radius:22px;padding:22px;margin:14px 0;box-shadow:0 10px 35px rgba(15,23,42,.08);border:1px solid #e8eef6}
+h2{font-size:20px;margin:0 0 16px}
+.grid{display:grid;gap:11px}
+input,button{width:100%;box-sizing:border-box;border-radius:13px;font-size:16px}
+input{padding:14px;border:1px solid #cbd5e1;background:#fff;outline:none}
+input:focus{border-color:#2563eb;box-shadow:0 0 0 3px #dbeafe}
+button{padding:14px 16px;border:0;background:#2563eb;color:#fff;font-weight:800;cursor:pointer;min-height:50px}
+button:disabled{opacity:.55;cursor:wait}
+.secondary{background:#334155}
+.ghost{background:#fff;color:#2563eb;border:1px solid #bfdbfe}
+.muted{color:#64748b;font-size:14px}
+.remember{display:flex;align-items:center;gap:8px;color:#475569;font-size:14px}
+.remember input{width:auto}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.topline h2{margin:0}
+.logout{width:auto;min-height:0;padding:9px 12px;font-size:13px}
+.statusGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.pill{padding:15px 10px;border-radius:15px;background:#f8fafc;text-align:center;border:1px solid #e2e8f0}
+.pill .label{font-size:13px;color:#64748b;margin-bottom:4px}
+.big{font-size:25px;font-weight:900;color:#0f172a}
+.row{display:flex;gap:10px;margin-top:14px}
+.row button{flex:1}
+#qrArea{margin-top:18px;border-radius:18px;background:#f8fafc;min-height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;border:1px dashed #cbd5e1}
+#qr{display:flex;justify-content:center;min-height:0}
+#qr img,#qr canvas{max-width:240px!important;height:auto!important}
+#qrMsg{text-align:center;margin-top:10px;line-height:1.5}
+.modeHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0}
+.modeLabel{font-size:20px;font-weight:900;color:#0f172a}
+.modeBack{width:auto;min-height:0;padding:9px 12px;font-size:13px}
+#modeView #qrArea{margin-top:14px}
+.inlineState{display:flex;align-items:center;justify-content:center;gap:9px;color:#475569;font-size:14px}
+.spinner{width:18px;height:18px;border:3px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.notice{margin-top:12px;padding:11px 13px;border-radius:12px;font-size:14px;line-height:1.45;display:none}
+.notice.show{display:block}
+.notice.ok{background:#ecfdf5;color:#047857}
+.notice.err{background:#fef2f2;color:#b91c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <h1>출/퇴근 인증</h1>
+    <p>간편하게 QR로 출퇴근을 기록하세요.</p>
+  </div>
+
+  <div id="loginCard" class="card">
+    <h2>로그인</h2>
+    <div class="grid">
+      <input id="loginPhone" inputmode="numeric" autocomplete="tel" placeholder="휴대폰번호">
+      <input id="loginPw" type="password" autocomplete="current-password" placeholder="비밀번호">
+      <label class="remember"><input id="rememberPhone" type="checkbox"> 휴대폰번호 저장</label>
+      <button id="loginBtn" onclick="loginFn()">로그인</button>
+      <button class="ghost" onclick="showCard('signupCard')">처음 가입하기</button>
+      <button class="ghost" onclick="showCard('resetCard')">비밀번호 재설정</button>
+    </div>
+    <div id="loginNotice" class="notice"></div>
+  </div>
+
+  <div id="signupCard" class="card" hidden>
+    <h2>회원가입</h2>
+    <div class="grid">
+      <input id="sName" placeholder="이름">
+      <input id="sPhone" inputmode="numeric" placeholder="휴대폰번호">
+      <input id="sBirth" type="date">
+      <input id="sPw" type="password" placeholder="비밀번호 4자리 이상">
+      <label class="remember"><input id="sConsent" type="checkbox"> 개인정보 수집·이용에 동의합니다.</label>
+      <button onclick="signupFn()">가입하기</button>
+      <button class="ghost" onclick="showCard('loginCard')">로그인으로</button>
+    </div>
+  </div>
+
+  <div id="resetCard" class="card" hidden>
+    <h2>비밀번호 재설정</h2>
+    <p class="muted">관리자에게 받은 6자리 초기화 코드를 입력하세요.</p>
+    <div class="grid">
+      <input id="rPhone" inputmode="numeric" placeholder="휴대폰번호">
+      <input id="rCode" inputmode="numeric" placeholder="초기화 코드">
+      <input id="rPw" type="password" placeholder="새 비밀번호">
+      <button onclick="resetFn()">새 비밀번호 설정</button>
+      <button class="ghost" onclick="showCard('loginCard')">로그인으로</button>
+    </div>
+  </div>
+
+  <div id="mainCard" class="card" hidden>
+    <div class="topline">
+      <h2 id="who"></h2>
+      <button class="ghost logout" onclick="logoutFn()">로그아웃</button>
+    </div>
+
+    <div class="statusGrid">
+      <div class="pill"><div class="label">출근</div><div id="inTime" class="big">-</div></div>
+      <div class="pill"><div class="label">퇴근</div><div id="outTime" class="big">-</div></div>
+    </div>
+
+    <div id="modeSelect">
+      <div class="row">
+        <button onclick="openQrMode('IN')">출근 QR</button>
+        <button class="secondary" onclick="openQrMode('OUT')">퇴근 QR</button>
+      </div>
+      <div class="muted" style="text-align:center;margin-top:12px">
+        인증할 항목을 선택해주세요.
+      </div>
+    </div>
+
+    <div id="modeView" hidden>
+      <div class="modeHeader">
+        <div>
+          <div id="modeLabel" class="modeLabel">출근 인증</div>
+          <div id="modeDesc" class="muted">출근용 QR만 표시됩니다.</div>
+        </div>
+        <button class="ghost modeBack" onclick="backToModeSelect()">다시 선택</button>
+      </div>
+
+      <div id="qrArea">
+        <div id="qr"></div>
+        <div id="qrMsg" class="muted">QR을 생성하고 있습니다.</div>
+      </div>
+
+      <button id="regenBtn" class="ghost" style="margin-top:12px;display:none" onclick="regenCurrentQr()">
+        새 QR 생성
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/config.js"></script>
+<script src="../assets/bridge-client.js"></script>
+<script>
+let sess='', timer=null, qrLoading=false, currentQrType='';
+const PHONE_KEY='daham_saved_phone_v1';
+
+function showCard(id){
+  ['loginCard','signupCard','resetCard'].forEach(x=>{
+    document.getElementById(x).hidden=x!==id;
+  });
+}
+
+function errorMessage(e){
+  return (e&&e.message)||e||'오류가 발생했습니다.';
+}
+
+function setNotice(el,text,type){
+  el.textContent=text||'';
+  el.className='notice'+(text?' show '+(type||''):'');
+}
+
+function renderToday(t){
+  inTime.textContent=t&&t.actual_in?t.actual_in:'-';
+  outTime.textContent=t&&t.actual_out?t.actual_out:'-';
+}
+
+function setLoginLoading(on){
+  loginBtn.disabled=on;
+  loginBtn.innerHTML=on?'<span class="inlineState"><span class="spinner"></span>로그인 확인 중…</span>':'로그인';
+}
+
+function loginFn(){
+  if(!loginPhone.value||!loginPw.value){
+    setNotice(loginNotice,'휴대폰번호와 비밀번호를 입력하세요.','err');
+    return;
+  }
+
+  setNotice(loginNotice,'','');
+  setLoginLoading(true);
+
+  google.script.run
+    .withSuccessHandler(r=>{
+      if(rememberPhone.checked){
+        localStorage.setItem(PHONE_KEY,loginPhone.value.replace(/\D/g,''));
+      }else{
+        localStorage.removeItem(PHONE_KEY);
+      }
+
+      sess=r.session;
+      who.textContent=r.worker.name+'님';
+      document.querySelectorAll('.card').forEach(x=>x.hidden=true);
+      mainCard.hidden=false;
+      renderToday(r.today);
+      setLoginLoading(false);
+    })
+    .withFailureHandler(e=>{
+      setLoginLoading(false);
+      setNotice(loginNotice,errorMessage(e),'err');
+    })
+    .loginWorker(loginPhone.value,loginPw.value);
+}
+
+function signupFn(){
+  google.script.run
+    .withSuccessHandler(r=>{
+      alert(r.message);
+      showCard('loginCard');
+    })
+    .withFailureHandler(e=>alert(errorMessage(e)))
+    .registerWorker({
+      name:sName.value,
+      phone:sPhone.value,
+      birth_date:sBirth.value,
+      password:sPw.value,
+      consent:sConsent.checked
+    });
+}
+
+function resetFn(){
+  google.script.run
+    .withSuccessHandler(()=>{
+      alert('새 비밀번호가 설정되었습니다.');
+      showCard('loginCard');
+    })
+    .withFailureHandler(e=>alert(errorMessage(e)))
+    .setNewPasswordWithReset(rPhone.value,rCode.value,rPw.value);
+}
+
+function logoutFn(){
+  sess='';
+  if(timer)clearInterval(timer);
+  qr.innerHTML='';
+  qrMsg.textContent='QR을 생성하고 있습니다.';
+  currentQrType='';
+  modeView.hidden=true;
+  modeSelect.hidden=false;
+  regenBtn.style.display='none';
+  mainCard.hidden=true;
+  loginPw.value='';
+  showCard('loginCard');
+}
+
+function setQrLoading(type,on){
+  qrLoading=on;
+  regenBtn.disabled=on;
+
+  if(on){
+    qr.innerHTML='';
+    qrMsg.innerHTML=
+      '<span class="inlineState"><span class="spinner"></span>'+
+      (type==='IN'?'출근':'퇴근')+' QR 생성 중…</span>';
+    regenBtn.style.display='none';
+  }
+}
+
+function openQrMode(type){
+  if(qrLoading)return;
+
+  currentQrType=type;
+  modeSelect.hidden=true;
+  modeView.hidden=false;
+
+  if(type==='IN'){
+    modeLabel.textContent='출근 인증';
+    modeDesc.textContent='출근용 QR만 표시됩니다.';
+  }else{
+    modeLabel.textContent='퇴근 인증';
+    modeDesc.textContent='퇴근용 QR만 표시됩니다.';
+  }
+
+  makeQr(type);
+}
+
+function backToModeSelect(){
+  if(timer)clearInterval(timer);
+  timer=null;
+  currentQrType='';
+  qrLoading=false;
+  qr.innerHTML='';
+  qrMsg.textContent='QR을 생성하고 있습니다.';
+  regenBtn.style.display='none';
+  modeView.hidden=true;
+  modeSelect.hidden=false;
+}
+
+function regenCurrentQr(){
+  if(!currentQrType || qrLoading)return;
+  makeQr(currentQrType);
+}
+
+function makeQr(type){
+  if(qrLoading)return;
+  if(!sess){
+    alert('로그인이 만료되었습니다. 다시 로그인하세요.');
+    return;
+  }
+
+  // 현재 선택한 모드와 다른 QR 요청은 무시
+  if(currentQrType && type!==currentQrType)return;
+
+  if(timer)clearInterval(timer);
+  setQrLoading(type,true);
+
+  google.script.run
+    .withSuccessHandler(r=>{
+      // 사용자가 생성 도중 '다시 선택'을 눌렀다면 결과를 표시하지 않음
+      if(!currentQrType || currentQrType!==type){
+        qrLoading=false;
+        return;
+      }
+
+      qr.innerHTML='';
+
+      if(typeof QRCode!=='function'){
+        setQrLoading(type,false);
+        qrMsg.textContent='QR 라이브러리를 불러오지 못했습니다. 화면을 새로고침하세요.';
+        regenBtn.style.display='block';
+        return;
+      }
+
+      new QRCode(qr,{
+        text:r.token,
+        width:240,
+        height:240,
+        correctLevel:QRCode.CorrectLevel.M
+      });
+
+      setQrLoading(type,false);
+
+      const tick=()=>{
+        const left=Math.max(0,Math.ceil((r.expires_epoch-Date.now())/1000));
+
+        if(left>0){
+          qrMsg.textContent=(type==='IN'?'출근':'퇴근')+' QR · '+left+'초 남음';
+          regenBtn.style.display='none';
+        }else{
+          clearInterval(timer);
+          timer=null;
+          qr.innerHTML='';
+          qrMsg.textContent='QR이 만료되었습니다. 새 QR을 생성해주세요.';
+          regenBtn.style.display='block';
+        }
+      };
+
+      tick();
+      timer=setInterval(tick,1000);
+    })
+    .withFailureHandler(e=>{
+      setQrLoading(type,false);
+
+      if(!currentQrType || currentQrType!==type)return;
+
+      qr.innerHTML='';
+      qrMsg.textContent='QR 생성 실패 · '+errorMessage(e);
+      regenBtn.style.display='block';
+    })
+    .issueQr(sess,type);
+}
+
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem(PHONE_KEY)||'';
+
+  if(saved){
+    loginPhone.value=saved;
+    rememberPhone.checked=true;
+  }
+});
+</script>
+</body>
+</html>
