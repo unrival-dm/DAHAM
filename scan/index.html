@@ -17,7 +17,7 @@
   header{position:absolute;z-index:3;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 18px 16px;text-align:center;text-shadow:0 2px 8px #000}
   h1{margin:0;font-size:28px} header p{margin:8px 0 0;font-size:15px;color:#e2e8f0}
   #status{position:absolute;z-index:4;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);min-width:min(88vw,520px);max-width:92vw;padding:15px 18px;border-radius:18px;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);text-align:center;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  #status small{display:block;margin-top:6px;font-size:13px;font-weight:400;color:#cbd5e1;word-break:break-word}
+  #status small{display:block;margin-top:6px;font-size:13px;font-weight:400;color:#cbd5e1;word-break:break-word;white-space:pre-line;}
   #gate{position:absolute;z-index:10;inset:0;display:none;align-items:center;justify-content:center;padding:22px;background:#0f172a}
   #gate.show{display:flex}
   .card{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:24px;padding:28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -33,7 +33,6 @@
   #result.ok .resultCard{border-top:7px solid #16a34a}
   #result.err .resultCard{border-top:7px solid #dc2626}
   #canvas{display:none}
-  #status small{white-space:pre-line;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 </head>
