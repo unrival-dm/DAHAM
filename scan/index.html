@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>도급 출퇴근 스캐너</title>
+<title>출/퇴근 스캐너</title>
 <style>
   *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
   #app{position:fixed;inset:0;background:#0f172a}
@@ -43,7 +43,7 @@
     <div id="frame"></div>
     <video id="video" playsinline muted autoplay></video>
   </div>
-  <header><h1>도급 출퇴근</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
+  <header><h1>출/퇴근 스캔</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
   <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small><span id="busyPill"><span class="spin"></span><span id="busyText">서버 확인 중</span></span></div>
   <div id="gate"><div class="card"><h2 id="gateTitle">카메라 권한이 필요합니다</h2><p id="gateText">현장 스캐너에서 QR을 읽기 위해 카메라 사용 권한이 필요합니다.</p><button id="startBtn">카메라 허용하고 시작</button></div></div>
   <div id="result"><div class="resultCard"><div class="big" id="resultBig"></div><div class="sub" id="resultSub"></div></div></div>
@@ -169,7 +169,7 @@
       running = true;
       startPreviewLoop();
       hideGate();
-      setStatus('스캔 대기 중', '전면 카메라에 QR만 보여주세요. 카메라는 계속 켜져 있습니다.');
+      setStatus('스캔 대기 중', '전면 카메라에 QR만 보여주세요.<br>카메라는 계속 켜져 있습니다.');
       scheduleScan(100);
     } catch (err) {
       await stopCamera();
