@@ -169,7 +169,7 @@
       running = true;
       startPreviewLoop();
       hideGate();
-      setStatus('스캔 대기 중', '전면 카메라에 QR만 보여주세요./n카메라는 계속 켜져 있습니다.');
+      setStatus('스캔 대기 중');
       scheduleScan(100);
     } catch (err) {
       await stopCamera();
