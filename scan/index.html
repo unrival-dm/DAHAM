@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>출/퇴근 스캐너</title>
+<title>도급 출퇴근 스캐너</title>
 <style>
   *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;background:#0f172a;color:#fff;font-family:Arial,'Noto Sans KR',sans-serif;overflow:hidden}
   #app{position:fixed;inset:0;background:#0f172a}
@@ -17,7 +17,7 @@
   header{position:absolute;z-index:3;left:0;right:0;top:0;padding:calc(18px + env(safe-area-inset-top)) 18px 16px;text-align:center;text-shadow:0 2px 8px #000}
   h1{margin:0;font-size:28px} header p{margin:8px 0 0;font-size:15px;color:#e2e8f0}
   #status{position:absolute;z-index:4;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);min-width:min(88vw,520px);max-width:92vw;padding:15px 18px;border-radius:18px;background:rgba(15,23,42,.88);backdrop-filter:blur(8px);text-align:center;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  #status small{display:block;margin-top:6px;font-size:13px;font-weight:400;color:#cbd5e1;word-break:break-word;white-space:pre-line;}
+  #status small{display:block;margin-top:6px;font-size:13px;font-weight:400;color:#cbd5e1;word-break:break-word}
   #gate{position:absolute;z-index:10;inset:0;display:none;align-items:center;justify-content:center;padding:22px;background:#0f172a}
   #gate.show{display:flex}
   .card{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:24px;padding:28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -26,12 +26,8 @@
   button:disabled{opacity:.55;cursor:wait}
   #result{position:absolute;z-index:9;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.74);padding:22px}
   #result.show{display:flex}.resultCard{width:min(100%,520px);background:#fff;color:#0f172a;border-radius:26px;padding:34px;text-align:center}.resultCard .big{font-size:30px;font-weight:900}.resultCard .sub{margin-top:10px;color:#475569;font-size:17px}
-  #busyPill{display:none;align-items:center;justify-content:center;gap:9px;margin-top:8px;font-size:13px;color:#bfdbfe;font-weight:500}
-  #busyPill.show{display:flex}
-  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  #result.ok .resultCard{border-top:7px solid #16a34a}
-  #result.err .resultCard{border-top:7px solid #dc2626}
+  #cameraSwitch{position:absolute;z-index:5;top:calc(112px + env(safe-area-inset-top));right:18px;width:auto;max-width:calc(100% - 36px);padding:11px 15px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(15,23,42,.88);font-size:14px;box-shadow:0 5px 15px rgba(0,0,0,.3)}
+  #cameraSwitch:disabled{opacity:.55}
   #canvas{display:none}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -43,8 +39,9 @@
     <div id="frame"></div>
     <video id="video" playsinline muted autoplay></video>
   </div>
-  <header><h1>출/퇴근 스캔</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
-  <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small><span id="busyPill"><span class="spin"></span><span id="busyText">서버 확인 중</span></span></div>
+  <header><h1>도급 출퇴근</h1><p>작업자 QR을 카메라에 보여주세요</p></header>
+  <button id="cameraSwitch" type="button" disabled aria-label="카메라 전환">후면 카메라로 전환</button>
+  <div id="status">카메라 준비 중<small>최초 1회 카메라 권한을 허용해 주세요.</small></div>
   <div id="gate"><div class="card"><h2 id="gateTitle">카메라 권한이 필요합니다</h2><p id="gateText">현장 스캐너에서 QR을 읽기 위해 카메라 사용 권한이 필요합니다.</p><button id="startBtn">카메라 허용하고 시작</button></div></div>
   <div id="result"><div class="resultCard"><div class="big" id="resultBig"></div><div class="sub" id="resultSub"></div></div></div>
   <canvas id="canvas"></canvas>
@@ -56,9 +53,9 @@
   // 현재 Apps Script 웹앱 /exec 주소. 별도 config.js는 사용하지 않습니다.
   const API_URL = 'https://script.google.com/macros/s/AKfycbxCzuxN0zgp0C5lrJWlkQXuYvielnBVx251ZcHjtnsGsKd2acNIVI3xJe9rgV9LBtBG/exec';
   const SCANNER_ID = 'GITHUB-TABLET-01';
-  const SCAN_INTERVAL_MS = 120;
-  const SAME_QR_COOLDOWN_MS = 2500;
-  const RESULT_SHOW_MS = 1200;
+  const SCAN_INTERVAL_MS = 180;
+  const SAME_QR_COOLDOWN_MS = 4500;
+  const RESULT_SHOW_MS = 1900;
 
   const video = document.getElementById('video');
   const preview = document.getElementById('preview');
@@ -70,6 +67,7 @@
   const gateTitle = document.getElementById('gateTitle');
   const gateText = document.getElementById('gateText');
   const startBtn = document.getElementById('startBtn');
+  const cameraSwitch = document.getElementById('cameraSwitch');
   const resultEl = document.getElementById('result');
   const resultBig = document.getElementById('resultBig');
   const resultSub = document.getElementById('resultSub');
@@ -82,13 +80,13 @@
   let lastToken = '';
   let lastTokenAt = 0;
   let scanTimer = null;
+  let cameraFacing = 'user';
+  let activeFacing = 'user';
+  let activeCameraId = '';
+  let switching = false;
 
-  function setStatus(main, sub='', busy=false) {
-    statusEl.innerHTML =
-      escapeHtml(main) +
-      (sub ? '<small>' + escapeHtml(sub) + '</small>' : '') +
-      '<span id="busyPill" class="' + (busy ? 'show' : '') + '">' +
-      '<span class="spin"></span><span id="busyText">서버 확인 중</span></span>';
+  function setStatus(main, sub='') {
+    statusEl.innerHTML = escapeHtml(main) + (sub ? '<small>' + escapeHtml(sub) + '</small>' : '');
   }
   function escapeHtml(s){ return String(s ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
@@ -110,68 +108,79 @@
       stream = null;
     }
     video.srcObject = null;
+    updateCameraSwitch();
+  }
+
+  function updateCameraSwitch(){
+    cameraSwitch.textContent = activeFacing === 'user' ? '후면 카메라로 전환' : '전면 카메라로 전환';
+    cameraSwitch.disabled = starting || switching || processing || !running;
+    preview.style.transform = activeFacing === 'user' ? 'scaleX(-1)' : 'none';
+  }
+
+  async function openSelectedCamera(facing){
+    let permissionStream = await navigator.mediaDevices.getUserMedia({audio:false, video:true});
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(d => d.kind === 'videoinput');
+      const frontRe = /(front|user|selfie|facetime|전면|앞면)/i;
+      const rearRe = /(back|rear|environment|후면|뒷면)/i;
+      const wanted = facing === 'user' ? frontRe : rearRe;
+      const unwanted = facing === 'user' ? rearRe : frontRe;
+      let chosen = cameras.find(d => wanted.test(d.label || ''));
+      if (!chosen && cameras.length > 1) {
+        chosen = cameras.find(d => d.deviceId !== activeCameraId && !unwanted.test(d.label || ''))
+              || cameras.find(d => d.deviceId !== activeCameraId)
+              || cameras[0];
+      }
+      if (chosen && chosen.deviceId) {
+        permissionStream.getTracks().forEach(t => t.stop());
+        permissionStream = null;
+        try {
+          return await navigator.mediaDevices.getUserMedia({audio:false, video:{deviceId:{exact:chosen.deviceId}}});
+        } catch(err) {
+          console.warn('장치 선택 실패. 카메라 방향으로 다시 시도합니다.', err);
+        }
+      }
+      if (permissionStream) {
+        permissionStream.getTracks().forEach(t => t.stop());
+        permissionStream = null;
+      }
+      return await navigator.mediaDevices.getUserMedia({audio:false, video:{facingMode:{ideal:facing}}});
+    } finally {
+      if (permissionStream) permissionStream.getTracks().forEach(t => t.stop());
+    }
   }
 
   async function startCamera(){
     if (starting || running) return;
     starting = true;
     startBtn.disabled = true;
+    updateCameraSwitch();
     setStatus('카메라 연결 중…');
     try {
       if (!window.isSecureContext) throw new Error('HTTPS 보안 연결이 필요합니다.');
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('이 브라우저는 카메라 기능을 지원하지 않습니다.');
-
       await stopCamera();
-
-      // facingMode를 아예 사용하지 않습니다.
-      // 1) 가장 단순한 video:true로 권한을 먼저 획득합니다.
-      // 2) 권한 획득 후 카메라 목록을 읽어 전면 카메라를 찾아 deviceId로 직접 선택합니다.
-      let permissionStream = await navigator.mediaDevices.getUserMedia({audio:false, video:true});
-      let selectedStream = permissionStream;
-
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(d => d.kind === 'videoinput');
-        const frontRe = /(front|user|selfie|facetime|전면|앞면)/i;
-        const rearRe = /(back|rear|environment|후면|뒷면)/i;
-
-        let front = cameras.find(d => frontRe.test(d.label || ''));
-        if (!front && cameras.length > 1) {
-          front = cameras.find(d => !rearRe.test(d.label || '')) || cameras[0];
-        }
-
-        if (front && front.deviceId) {
-          permissionStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
-          permissionStream = null;
-          selectedStream = await navigator.mediaDevices.getUserMedia({
-            audio:false,
-            video:{deviceId:{exact:front.deviceId}}
-          });
-        }
-      } catch (selectErr) {
-        console.warn('전면 카메라 선택 실패. 기본 카메라를 그대로 사용합니다.', selectErr);
-        if (!selectedStream || !selectedStream.active) {
-          selectedStream = await navigator.mediaDevices.getUserMedia({audio:false, video:true});
-        }
-      }
-
-      stream = selectedStream;
+      stream = await openSelectedCamera(cameraFacing);
       video.srcObject = stream;
       await video.play();
-
+      const track = stream.getVideoTracks()[0];
+      const settings = track && track.getSettings ? track.getSettings() : {};
+      activeCameraId = settings.deviceId || '';
+      activeFacing = settings.facingMode || cameraFacing;
+      if (activeFacing !== 'user' && activeFacing !== 'environment') activeFacing = cameraFacing;
       if ('BarcodeDetector' in window) {
         try {
           const supported = await BarcodeDetector.getSupportedFormats();
           if (supported.includes('qr_code')) detector = new BarcodeDetector({formats:['qr_code']});
         } catch(e) { detector = null; }
       }
-
       running = true;
       startPreviewLoop();
       hideGate();
-      setStatus('스캔 대기 중');
+      setStatus('스캔 대기 중', activeFacing === 'user' ? '전면 카메라 사용 중' : '후면 카메라 사용 중');
       scheduleScan(100);
-    } catch (err) {
+    } catch(err) {
       await stopCamera();
       const name = err && err.name ? err.name : '';
       const msg = err && err.message ? err.message : String(err || '알 수 없는 오류');
@@ -186,7 +195,22 @@
     } finally {
       starting = false;
       startBtn.disabled = false;
+      updateCameraSwitch();
     }
+  }
+
+  async function switchCamera(){
+    if (starting || switching || processing || !running) return;
+    switching = true;
+    const oldFacing = activeFacing;
+    cameraFacing = activeFacing === 'user' ? 'environment' : 'user';
+    updateCameraSwitch();
+    setStatus('카메라 전환 중…');
+    await stopCamera();
+    switching = false;
+    await startCamera();
+    if (!running) cameraFacing = oldFacing;
+    updateCameraSwitch();
   }
 
   let previewRaf = null;
@@ -258,107 +282,32 @@
 
   async function handleQr(token){
     const now = Date.now();
-
     if (processing) return;
     if (token === lastToken && now - lastTokenAt < SAME_QR_COOLDOWN_MS) return;
-
     lastToken = token;
     lastTokenAt = now;
     processing = true;
-
-    const apiStart = performance.now();
-    let elapsedTimer = null;
-
-    const updateWaiting = () => {
-      const ms = Math.round(performance.now() - apiStart);
-      setStatus(
-        'QR 인식 완료',
-        '출퇴근 기록을 확인하고 있습니다 · ' + (ms / 1000).toFixed(1) + '초',
-        true
-      );
-    };
-
-    updateWaiting();
-    elapsedTimer = setInterval(updateWaiting, 250);
-
+    updateCameraSwitch();
+    setStatus('QR 확인 중…');
     try {
       const res = await callScanApi(token);
-      const apiMs = Math.round(performance.now() - apiStart);
-      const serverMs = Number(res && res.server_ms || 0);
-
-      if (elapsedTimer) {
-        clearInterval(elapsedTimer);
-        elapsedTimer = null;
-      }
-
       const ok = !!(res && res.ok);
-      const message = (res && res.message)
-        ? res.message
-        : (ok ? '정상 처리되었습니다.' : '처리하지 못했습니다.');
-
-      const name = (res && (res.name || res.worker_name))
-        ? (res.name || res.worker_name)
-        : '';
-
-      const type = (res && (res.type || res.qr_type))
-        ? String(res.type || res.qr_type).toUpperCase()
-        : '';
-
+      const message = (res && res.message) ? res.message : (ok ? '처리 완료' : '처리하지 못했습니다.');
+      const name = (res && (res.name || res.worker_name)) ? (res.name || res.worker_name) : '';
+      const type = (res && (res.type || res.qr_type)) ? String(res.type || res.qr_type).toUpperCase() : '';
       const typeKo = type === 'IN' ? '출근' : type === 'OUT' ? '퇴근' : '';
-      const timing = 'API ' + apiMs + 'ms' + (serverMs ? ' · 서버 ' + serverMs + 'ms' : '');
-
-      resultEl.classList.remove('ok','err');
-      resultEl.classList.add(ok ? 'ok' : 'err');
-
-      showResult(
-        ok
-          ? (name ? name + ' ' + typeKo + ' 완료' : (typeKo ? typeKo + ' 완료' : '처리 완료'))
-          : '처리 확인',
-        message + ' · ' + timing
-      );
-
-      setStatus(
-        ok ? '처리 완료' : '확인 필요',
-        timing
-      );
-
-      console.log('[DAHAM]', timing, res);
-
+      showResult(ok ? (name ? name : (typeKo ? typeKo + ' 완료' : '처리 완료')) : '처리 실패', message);
+      setStatus(ok ? '처리 완료' : '확인 필요', message);
     } catch(err) {
-      if (elapsedTimer) {
-        clearInterval(elapsedTimer);
-        elapsedTimer = null;
-      }
-
-      const apiMs = Math.round(performance.now() - apiStart);
       const msg = err && err.message ? err.message : '서버 연결 오류';
-
-      resultEl.classList.remove('ok','err');
-      resultEl.classList.add('err');
-
-      showResult(
-        '서버 연결 오류',
-        msg + ' · API ' + apiMs + 'ms'
-      );
-
-      setStatus(
-        '서버 연결 오류',
-        '네트워크 상태를 확인한 뒤 다시 스캔해주세요.'
-      );
-
+      showResult('서버 연결 오류', msg);
+      setStatus('서버 연결 오류', msg);
     } finally {
-      if (elapsedTimer) clearInterval(elapsedTimer);
-
       setTimeout(() => {
         processing = false;
-        resultEl.classList.remove('show','ok','err');
-
-        if (running) {
-          setStatus(
-            '스캔 대기 중',
-            '다음 작업자의 QR을 보여주세요.'
-          );
-        }
+        updateCameraSwitch();
+        resultEl.classList.remove('show');
+        if (running) setStatus('스캔 대기 중', '다음 작업자의 QR을 보여주세요.');
       }, RESULT_SHOW_MS);
     }
   }
@@ -390,6 +339,7 @@
   }
 
   startBtn.addEventListener('click', startCamera);
+  cameraSwitch.addEventListener('click', switchCamera);
 
   document.addEventListener('visibilitychange', () => {
     // 화면이 다시 활성화된 경우 스트림이 브라우저에 의해 종료됐을 때만 재연결 안내.
